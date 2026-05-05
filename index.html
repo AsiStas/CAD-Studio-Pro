@@ -1,0 +1,2541 @@
+Проверю и исправлю экспорт — добавлю отладочную информацию и надёжный механизм скачивания файлов на ПК.
+
+```html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAD Studio Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-tertiary: #0f3460;
+  --bg-panel: rgba(22, 33, 62, 0.95);
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b0;
+  --accent: #e94560;
+  --accent-hover: #ff6b81;
+  --accent-glow: rgba(233, 69, 96, 0.3);
+  --border: rgba(255,255,255,0.1);
+  --success: #00d2a0;
+  --warning: #ffc107;
+  --info: #2196f3;
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.light-theme {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8ecf1;
+  --bg-panel: rgba(255, 255, 255, 0.95);
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+  --border: rgba(0,0,0,0.1);
+  --shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 100;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.logo svg { width: 28px; height: 28px; }
+
+.header-divider { width: 1px; height: 28px; background: var(--border); margin: 0 8px; }
+
+.header-actions { display: flex; gap: 4px; align-items: center; }
+
+.header-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+}
+
+.header-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border); }
+.header-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+.header-spacer { flex: 1; }
+
+.theme-toggle {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.theme-toggle:hover { border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+
+.main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.left-panel {
+  width: 280px;
+  min-width: 220px;
+  max-width: 450px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.panel-section { padding: 16px; border-bottom: 1px solid var(--border); }
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+.tool-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.tool-btn:hover { background: var(--accent-glow); border-color: var(--accent); transform: translateY(-1px); }
+.tool-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+.tool-btn svg { width: 20px; height: 20px; }
+
+.resize-handle {
+  width: 6px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  z-index: 50;
+  transition: background 0.2s;
+}
+
+.resize-handle:hover, .resize-handle.active { background: var(--accent); }
+
+.right-panel {
+  width: 300px;
+  min-width: 240px;
+  max-width: 500px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.right-panel .panel-scroll { flex: 1; overflow-y: auto; overflow-x: auto; }
+
+.prop-group { padding: 16px; border-bottom: 1px solid var(--border); min-width: 240px; }
+
+.prop-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+
+.prop-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 22px;
+  text-align: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.prop-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: 'Inter', monospace;
+  outline: none;
+  transition: var(--transition);
+}
+
+.prop-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+.prop-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  outline: none;
+}
+
+.prop-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-secondary);
+}
+
+.prop-select {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.prop-select option { background: var(--bg-secondary); }
+
+.custom-form {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-top: 8px;
+  display: none;
+  animation: slideDown 0.2s ease;
+}
+
+.custom-form.visible { display: block; }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.custom-form h4 { font-size: 13px; margin-bottom: 10px; color: var(--accent); }
+
+.form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.form-row label { font-size: 11px; color: var(--text-secondary); width: 65px; flex-shrink: 0; }
+
+.form-row input[type="number"] {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.form-row input[type="number"]:focus { border-color: var(--accent); }
+
+.form-row input[type="color"] {
+  width: 40px; height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  padding: 2px;
+}
+
+.form-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+.btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); }
+
+.bool-btns { display: flex; flex-direction: column; gap: 6px; }
+
+.bool-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: var(--transition);
+}
+
+.bool-btn:hover { background: var(--accent-glow); border-color: var(--accent); }
+.bool-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+.shortcut {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.bool-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  background: var(--accent-glow);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  display: none;
+  line-height: 1.4;
+}
+
+.bool-info.visible { display: block; }
+
+.scene-tree { flex: 1; overflow-y: auto; }
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: var(--transition);
+  border-left: 3px solid transparent;
+}
+
+.tree-item:hover { background: var(--bg-tertiary); }
+.tree-item.selected { background: var(--accent-glow); border-left-color: var(--accent); }
+.tree-item .name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tree-item .visibility-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  transition: var(--transition);
+  font-size: 14px;
+}
+
+.tree-item .visibility-toggle:hover { color: var(--text-primary); }
+
+.viewport-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+.viewport-wrap canvas { width: 100%; height: 100%; display: block; }
+
+.viewport-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.view-btn {
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.view-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+
+.viewport-info {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  z-index: 10;
+}
+
+.measurement-display {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--accent);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: none;
+  min-width: 200px;
+  z-index: 10;
+}
+
+.measurement-display.visible { display: block; }
+.measurement-display .label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.measurement-display .value { font-size: 20px; font-weight: 700; color: var(--accent); }
+.measurement-display .detail { font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+
+.snap-indicator {
+  position: absolute;
+  bottom: 50px;
+  right: 12px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  z-index: 10;
+}
+
+.snap-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.snap-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
+.snap-dot.active { background: var(--success); }
+
+.selection-count {
+  position: absolute;
+  bottom: 50px;
+  left: 12px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--accent);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--accent);
+  z-index: 10;
+  display: none;
+  font-weight: 600;
+}
+
+.selection-count.visible { display: block; }
+
+.loading-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loading-overlay.visible { display: flex; }
+
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-text { font-size: 13px; color: var(--text-primary); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-bar {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  gap: 16px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.status-item { display: flex; align-items: center; gap: 4px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+.status-spacer { flex: 1; }
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay.visible { display: flex; }
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 440px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+  animation: modalIn 0.3s ease;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+
+.tutorial-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.tutorial-overlay.visible { display: flex; }
+
+.tutorial-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  width: 500px;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: modalIn 0.4s ease;
+}
+
+.tutorial-card h2 { font-size: 24px; margin-bottom: 12px; color: var(--accent); }
+.tutorial-card p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+.tutorial-steps { text-align: left; margin: 20px 0; }
+
+.tutorial-step { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.tutorial-step:last-child { border-bottom: none; }
+
+.step-num {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.notification {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  z-index: 3000;
+  box-shadow: var(--shadow);
+  animation: slideIn 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 350px;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.notification.success { border-left: 3px solid var(--success); }
+.notification.error { border-left: 3px solid var(--accent); }
+.notification.info { border-left: 3px solid var(--info); }
+
+.context-menu {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  display: none;
+}
+
+.context-menu.visible { display: block; }
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: var(--transition);
+  color: var(--text-primary);
+}
+
+.ctx-item:hover { background: var(--accent-glow); }
+.ctx-item svg { width: 14px; height: 14px; color: var(--text-secondary); }
+.ctx-divider { height: 1px; background: var(--border); margin: 4px 8px; }
+
+.tooltip {
+  position: absolute;
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 500;
+  white-space: nowrap;
+  display: none;
+  box-shadow: var(--shadow);
+}
+
+.tooltip.visible { display: block; }
+
+.color-picker-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+.color-swatch {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: var(--transition);
+}
+
+.color-swatch:hover, .color-swatch.active { border-color: white; transform: scale(1.15); }
+
+.import-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  margin: 8px 0;
+}
+
+.import-area:hover { border-color: var(--accent); background: var(--accent-glow); }
+.import-area svg { width: 32px; height: 32px; color: var(--text-secondary); margin-bottom: 8px; }
+.import-area p { font-size: 12px; color: var(--text-secondary); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.mobile-nav { display: none; }
+
+@media (max-width: 768px) {
+  .left-panel, .right-panel, .resize-handle { display: none !important; }
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 8px;
+    z-index: 500;
+    justify-content: space-around;
+  }
+}
+
+.param-section { padding: 0; border: none; }
+.param-title { font-size: 12px; font-weight: 500; margin-bottom: 8px; color: var(--text-primary); }
+.param-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.param-row label { font-size: 11px; color: var(--text-secondary); width: 65px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <header class="header">
+    <div class="logo">
+      <svg viewBox="0 0 28 28" fill="none">
+        <path d="M14 2L26 8V20L14 26L2 20V8L14 2Z" stroke="currentColor" stroke-width="2"/>
+        <path d="M14 14L26 8" stroke="currentColor" stroke-width="2"/>
+        <path d="M14 14L2 8" stroke="currentColor" stroke-width="2"/>
+        <path d="M14 14V26" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      CAD Studio Pro
+    </div>
+    <div class="header-divider"></div>
+    <div class="header-actions">
+      <button class="header-btn" onclick="showTutorial()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Помощь
+      </button>
+      <button class="header-btn" onclick="appUndo()" title="Ctrl+Z">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button class="header-btn" onclick="appRedo()" title="Ctrl+Y">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+      </button>
+      <div class="header-divider"></div>
+      <button class="header-btn" onclick="showImportModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Импорт
+      </button>
+      <button class="header-btn active" onclick="showExportModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Экспорт
+      </button>
+    </div>
+    <div class="header-spacer"></div>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Переключить тему">
+      <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="main-area">
+    <aside class="left-panel" id="leftPanel">
+      <div class="panel-scroll">
+        <div class="panel-section">
+          <div class="panel-title">Примитивы</div>
+          <div class="tool-grid">
+            <button class="tool-btn" onclick="showCustomForm('box')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Куб</button>
+            <button class="tool-btn" onclick="showCustomForm('sphere')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>Сфера</button>
+            <button class="tool-btn" onclick="showCustomForm('cylinder')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Цилиндр</button>
+            <button class="tool-btn" onclick="showCustomForm('cone')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="19" rx="9" ry="3"/><path d="M21 19L12 3 3 19"/></svg>Конус</button>
+            <button class="tool-btn" onclick="showCustomForm('torus')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></svg>Тор</button>
+            <button class="tool-btn" onclick="showCustomForm('plane')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" transform="rotate(15 12 12)"/></svg>Плоскость</button>
+          </div>
+
+          <div class="custom-form" id="customBoxForm">
+            <h4>📦 Создать куб</h4>
+            <div class="form-row"><label>Ширина (X)</label><input type="number" id="boxW" value="1" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Высота (Y)</label><input type="number" id="boxH" value="1" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Глубина (Z)</label><input type="number" id="boxD" value="1" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Цвет</label><input type="color" id="boxColor" value="#e94560"></div>
+            <div class="form-actions"><button class="btn btn-primary" onclick="createCustomBox()">Создать</button><button class="btn" onclick="hideCustomForms()">Отмена</button></div>
+          </div>
+
+          <div class="custom-form" id="customSphereForm">
+            <h4>🔵 Создать сферу</h4>
+            <div class="form-row"><label>Радиус</label><input type="number" id="sphereR" value="0.5" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Сегменты</label><input type="number" id="sphereSeg" value="32" step="1" min="4" max="128"></div>
+            <div class="form-row"><label>Цвет</label><input type="color" id="sphereColor" value="#2196f3"></div>
+            <div class="form-actions"><button class="btn btn-primary" onclick="createCustomSphere()">Создать</button><button class="btn" onclick="hideCustomForms()">Отмена</button></div>
+          </div>
+
+          <div class="custom-form" id="customCylinderForm">
+            <h4>🛢 Создать цилиндр</h4>
+            <div class="form-row"><label>Радиус</label><input type="number" id="cylR" value="0.5" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Высота</label><input type="number" id="cylH" value="1" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Сегменты</label><input type="number" id="cylSeg" value="32" step="1" min="3" max="128"></div>
+            <div class="form-row"><label>Цвет</label><input type="color" id="cylColor" value="#4caf50"></div>
+            <div class="form-actions"><button class="btn btn-primary" onclick="createCustomCylinder()">Создать</button><button class="btn" onclick="hideCustomForms()">Отмена</button></div>
+          </div>
+
+          <div class="custom-form" id="customConeForm">
+            <h4>🔺 Создать конус</h4>
+            <div class="form-row"><label>Радиус</label><input type="number" id="coneR" value="0.5" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Высота</label><input type="number" id="coneH" value="1" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Сегменты</label><input type="number" id="coneSeg" value="32" step="1" min="3" max="128"></div>
+            <div class="form-row"><label>Цвет</label><input type="color" id="coneColor" value="#ff9800"></div>
+            <div class="form-actions"><button class="btn btn-primary" onclick="createCustomCone()">Создать</button><button class="btn" onclick="hideCustomForms()">Отмена</button></div>
+          </div>
+
+          <div class="custom-form" id="customTorusForm">
+            <h4>🍩 Создать тор</h4>
+            <div class="form-row"><label>Радиус</label><input type="number" id="torusR" value="0.5" step="0.1" min="0.01"></div>
+            <div class="form-row"><label>Толщина</label><input type="number" id="torusT" value="0.2" step="0.05" min="0.01"></div>
+            <div class="form-row"><label>Сегменты</label><input type="number" id="torusSeg" value="32" step="1" min="4" max="128"></div>
+            <div class="form-row"><label>Цвет</label><input type="color" id="torusColor" value="#9c27b0"></div>
+            <div class="form-actions"><button class="btn btn-primary" onclick="createCustomTorus()">Создать</button><button class="btn" onclick="hideCustomForms()">Отмена</button></div>
+          </div>
+
+          <div class="custom-form" id="customPlaneForm">
+            <h4>⬜ Создать плоскость</h4>
+            <div class="form-row"><label>Ширина</label><input type="number" id="planeW" value="2" step="0.1" min="0.1"></div>
+            <div class="form-row"><label>Глубина</label><input type="number" id="planeD" value="2" step="0.1" min="0.1"></div>
+            <div class="form-row"><label>Цвет</label><input type="color" id="planeColor" value="#607d8b"></div>
+            <div class="form-actions"><button class="btn btn-primary" onclick="createCustomPlane()">Создать</button><button class="btn" onclick="hideCustomForms()">Отмена</button></div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-title">Трансформация</div>
+          <div class="tool-grid">
+            <button class="tool-btn active" id="btnMove" onclick="setTransformMode('translate')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>Переместить</button>
+            <button class="tool-btn" id="btnRotate" onclick="setTransformMode('rotate')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>Вращать</button>
+            <button class="tool-btn" id="btnScale" onclick="setTransformMode('scale')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>Масштаб</button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-title">Булевы операции (CSG)</div>
+          <div class="bool-info" id="boolInfo">⚠️ Выберите ровно 2 объекта (Shift+клик для мульти-выбора), затем нажмите операцию</div>
+          <div class="bool-btns">
+            <button class="bool-btn" onclick="csgBoolean('union')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="7"/><circle cx="15" cy="12" r="7"/></svg>Объединение <span class="shortcut">U</span></button>
+            <button class="bool-btn" onclick="csgBoolean('subtract')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="7" fill="currentColor" opacity="0.3"/><circle cx="15" cy="12" r="7"/></svg>Вычитание <span class="shortcut">X</span></button>
+            <button class="bool-btn" onclick="csgBoolean('intersect')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="7"/><circle cx="15" cy="12" r="7"/></svg>Пересечение <span class="shortcut">I</span></button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-title">Измерения</div>
+          <div class="tool-grid">
+            <button class="tool-btn" id="measureDistBtn" onclick="setMeasureMode('distance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/><line x1="4" y1="20" x2="4" y2="16"/><line x1="20" y1="4" x2="16" y2="4"/></svg>Расстояние</button>
+            <button class="tool-btn" id="measureAngleBtn" onclick="setMeasureMode('angle')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16"/><path d="M4 20L16 4"/></svg>Угол</button>
+            <button class="tool-btn" id="measureAreaBtn" onclick="setMeasureMode('area')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>Площадь</button>
+          </div>
+        </div>
+
+        <div class="scene-tree" id="sceneTree">
+          <div class="panel-title" style="padding: 16px 16px 8px; margin: 0;">Объекты</div>
+          <div id="sceneTreeContent"></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="resize-handle" id="leftResizeHandle"></div>
+
+    <div class="viewport-wrap grid-bg" id="viewport">
+      <div class="viewport-overlay">
+        <button class="view-btn" onclick="setView('iso')">Изометрия</button>
+        <button class="view-btn" onclick="setView('front')">Фронт</button>
+        <button class="view-btn" onclick="setView('top')">Сверху</button>
+        <button class="view-btn" onclick="setView('right')">Справа</button>
+        <button class="view-btn" onclick="setView('perspective')">Перспектива</button>
+      </div>
+      <div class="viewport-info" id="viewportInfo">
+        <span id="infoCoords">X: 0.00 Y: 0.00 Z: 0.00</span> | 
+        <span id="infoObjects">Объектов: 0</span> |
+        <span id="infoFps">FPS: 60</span>
+      </div>
+      <div class="measurement-display" id="measurementDisplay">
+        <div class="label" id="measureLabel">Расстояние</div>
+        <div class="value" id="measurementValue">—</div>
+        <div class="detail" id="measureDetail"></div>
+      </div>
+      <div class="selection-count" id="selectionCount"></div>
+      <div class="snap-indicator">
+        <div class="snap-toggle" onclick="toggleSnap()">
+          <div class="snap-dot active" id="snapDot"></div>
+          <span id="snapText">Привязка: ВКЛ</span>
+        </div>
+      </div>
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Выполнение CSG...</div>
+      </div>
+    </div>
+
+    <div class="resize-handle" id="rightResizeHandle"></div>
+
+    <aside class="right-panel" id="rightPanel">
+      <div class="panel-scroll">
+        <div class="prop-group" id="objectProps">
+          <div class="panel-title">Свойства объекта</div>
+          <div id="noSelection" style="font-size: 12px; color: var(--text-secondary); padding: 20px 0; text-align: center;">Выберите объект для редактирования</div>
+          <div id="propContent" style="display: none;">
+            <div class="prop-row"><span class="prop-label" style="width: auto;">Имя</span><input type="text" class="prop-input" id="propName" onchange="updateObjectName(this.value)"></div>
+            <div style="margin: 12px 0 4px; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Позиция</div>
+            <div class="prop-row"><span class="prop-label">X</span><input type="number" class="prop-input" id="propX" step="0.1" onchange="updateProp('x', this.value)"></div>
+            <div class="prop-row"><span class="prop-label">Y</span><input type="number" class="prop-input" id="propY" step="0.1" onchange="updateProp('y', this.value)"></div>
+            <div class="prop-row"><span class="prop-label">Z</span><input type="number" class="prop-input" id="propZ" step="0.1" onchange="updateProp('z', this.value)"></div>
+            <div style="margin: 12px 0 4px; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Вращение (°)</div>
+            <div class="prop-row"><span class="prop-label">X</span><input type="number" class="prop-input" id="propRX" step="1" onchange="updateProp('rx', this.value)"></div>
+            <div class="prop-row"><span class="prop-label">Y</span><input type="number" class="prop-input" id="propRY" step="1" onchange="updateProp('ry', this.value)"></div>
+            <div class="prop-row"><span class="prop-label">Z</span><input type="number" class="prop-input" id="propRZ" step="1" onchange="updateProp('rz', this.value)"></div>
+            <div style="margin: 12px 0 4px; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Масштаб</div>
+            <div class="prop-row"><span class="prop-label">X</span><input type="number" class="prop-input" id="propSX" step="0.1" min="0.01" onchange="updateProp('sx', this.value)"></div>
+            <div class="prop-row"><span class="prop-label">Y</span><input type="number" class="prop-input" id="propSY" step="0.1" min="0.01" onchange="updateProp('sy', this.value)"></div>
+            <div class="prop-row"><span class="prop-label">Z</span><input type="number" class="prop-input" id="propSZ" step="0.1" min="0.01" onchange="updateProp('sz', this.value)"></div>
+            <div style="margin: 12px 0 4px; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">Материал</div>
+            <div class="prop-row"><span class="prop-label" style="width: auto;">Цвет</span><input type="color" class="prop-input" id="propColor" style="width: 50px; padding: 2px; height: 32px;" onchange="updateObjectColor(this.value)"></div>
+            <div class="prop-row"><span class="prop-label" style="width: auto;">Прозр.</span><input type="range" class="prop-slider" id="propOpacity" min="0" max="1" step="0.05" value="1" oninput="updateObjectOpacity(this.value)"><span id="opacityVal" style="font-size: 11px; width: 36px; text-align: right; flex-shrink: 0;">100%</span></div>
+          </div>
+        </div>
+
+        <div class="prop-group" id="modifyProps">
+          <div class="panel-title">Параметры примитива</div>
+          <div id="noParamMsg" style="font-size: 12px; color: var(--text-secondary); padding: 10px 0;">Выберите примитив для изменения параметров</div>
+          <div id="paramContent" style="display: none;">
+            <div class="param-row"><label>Ширина</label><input type="number" class="prop-input" id="paramWidth" step="0.1" onchange="updateParam('width', this.value)"></div>
+            <div class="param-row"><label>Высота</label><input type="number" class="prop-input" id="paramHeight" step="0.1" onchange="updateParam('height', this.value)"></div>
+            <div class="param-row"><label>Глубина</label><input type="number" class="prop-input" id="paramDepth" step="0.1" onchange="updateParam('depth', this.value)"></div>
+            <div class="param-row"><label>Сегменты</label><input type="number" class="prop-input" id="paramSegments" step="1" min="3" max="128" onchange="updateParam('segments', this.value)"></div>
+          </div>
+          <div style="margin-top: 12px;">
+            <div class="param-title">Скругление (Fillet)</div>
+            <div class="param-row"><label>Радиус</label><input type="number" class="prop-input" id="filletRadius" step="0.05" min="0" value="0.05"></div>
+            <button class="btn" style="width: 100%; margin-top: 6px;" onclick="applyFillet()">Применить</button>
+          </div>
+          <div style="margin-top: 12px;">
+            <div class="param-title">Фаска (Chamfer)</div>
+            <div class="param-row"><label>Размер</label><input type="number" class="prop-input" id="chamferSize" step="0.05" min="0" value="0.05"></div>
+            <button class="btn" style="width: 100%; margin-top: 6px;" onclick="applyChamfer()">Применить</button>
+          </div>
+        </div>
+
+        <div class="prop-group">
+          <div class="panel-title">Быстрые цвета</div>
+          <div class="color-picker-wrap">
+            <div class="color-swatch active" style="background: #e94560;" onclick="quickColor('#e94560')"></div>
+            <div class="color-swatch" style="background: #2196f3;" onclick="quickColor('#2196f3')"></div>
+            <div class="color-swatch" style="background: #4caf50;" onclick="quickColor('#4caf50')"></div>
+            <div class="color-swatch" style="background: #ff9800;" onclick="quickColor('#ff9800')"></div>
+            <div class="color-swatch" style="background: #9c27b0;" onclick="quickColor('#9c27b0')"></div>
+            <div class="color-swatch" style="background: #00bcd4;" onclick="quickColor('#00bcd4')"></div>
+            <div class="color-swatch" style="background: #ffffff;" onclick="quickColor('#ffffff')"></div>
+            <div class="color-swatch" style="background: #607d8b;" onclick="quickColor('#607d8b')"></div>
+          </div>
+        </div>
+
+        <div class="prop-group">
+          <div class="panel-title">Материал</div>
+          <div class="prop-row"><span class="prop-label" style="width: auto;">Тип</span><select class="prop-select" id="materialType" onchange="changeMaterial(this.value)"><option value="standard">Стандартный</option><option value="metallic">Металлический</option><option value="glossy">Глянцевый</option><option value="matte">Матовый</option><option value="wireframe">Каркас</option></select></div>
+          <div class="prop-row"><span class="prop-label" style="width: auto;">Мет.</span><input type="range" class="prop-slider" id="metalness" min="0" max="1" step="0.05" value="0.3" oninput="updateMaterialProps()"><span id="metalnessVal" style="font-size: 11px; width: 30px; text-align: right; flex-shrink: 0;">0.3</span></div>
+          <div class="prop-row"><span class="prop-label" style="width: auto;">Шер.</span><input type="range" class="prop-slider" id="roughness" min="0" max="1" step="0.05" value="0.5" oninput="updateMaterialProps()"><span id="roughnessVal" style="font-size: 11px; width: 30px; text-align: right; flex-shrink: 0;">0.5</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="status-bar">
+    <div class="status-item"><div class="status-dot"></div> Готово</div>
+    <div class="status-item" id="statusMode">Режим: Выбор</div>
+    <div class="status-item" id="statusSnap">Привязка: ВКЛ</div>
+    <div class="status-spacer"></div>
+    <div class="status-item" id="statusSelection">Ничего не выбрано</div>
+    <div class="status-item">CAD Studio Pro v2.3</div>
+  </footer>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <div class="modal-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Экспорт модели</div>
+    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">Файл будет сохранён в папку «Загрузки» на вашем ПК:</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <button class="btn" onclick="exportSTL()"><div style="font-weight: 600;">📦 STL</div><div style="font-size: 11px; color: var(--text-secondary);">3D печать</div></button>
+      <button class="btn" onclick="exportOBJ()"><div style="font-weight: 600;">📄 OBJ</div><div style="font-size: 11px; color: var(--text-secondary);">Wavefront</div></button>
+      <button class="btn" onclick="exportPNG()"><div style="font-weight: 600;">🖼 PNG</div><div style="font-size: 11px; color: var(--text-secondary);">Скриншот</div></button>
+      <button class="btn" onclick="exportJSON()"><div style="font-weight: 600;">📋 JSON</div><div style="font-size: 11px; color: var(--text-secondary);">Проект</div></button>
+      <button class="btn" onclick="exportSVG()"><div style="font-weight: 600;">📐 SVG</div><div style="font-size: 11px; color: var(--text-secondary);">Вектор</div></button>
+      <button class="btn" onclick="exportGLTF()"><div style="font-weight: 600;">🌐 GLTF</div><div style="font-size: 11px; color: var(--text-secondary);">Web 3D</div></button>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('exportModal')">Закрыть</button></div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <div class="modal-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Импорт модели</div>
+    <div class="import-area" onclick="document.getElementById('fileInput').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p>Нажмите для выбора файла</p>
+      <p style="font-size: 11px; margin-top: 4px;">STL (ASCII/Binary), OBJ, JSON (проект)</p>
+    </div>
+    <input type="file" id="fileInput" accept=".stl,.obj,.json" style="display:none" onchange="handleFileImport(event)">
+    <div class="modal-actions"><button class="btn" onclick="closeModal('importModal')">Закрыть</button></div>
+  </div>
+</div>
+
+<!-- Tutorial -->
+<div class="tutorial-overlay" id="tutorialOverlay">
+  <div class="tutorial-card">
+    <h2>👋 Добро пожаловать!</h2>
+    <p>Мощный 3D CAD прямо в браузере</p>
+    <div class="tutorial-steps">
+      <div class="tutorial-step"><div class="step-num">1</div><div>Добавьте примитивы с настраиваемыми размерами</div></div>
+      <div class="tutorial-step"><div class="step-num">2</div><div>Перемещайте (G), вращайте (R), масштабируйте (S)</div></div>
+      <div class="tutorial-step"><div class="step-num">3</div><div>Выделите 2 объекта (Shift+клик) → CSG операции</div></div>
+      <div class="tutorial-step"><div class="step-num">4</div><div>Измеряйте расстояния/углы кликая по точкам</div></div>
+      <div class="tutorial-step"><div class="step-num">5</div><div>Экспорт: STL, OBJ, PNG, JSON, SVG, GLTF</div></div>
+    </div>
+    <div style="margin-top: 16px; font-size: 12px; color: var(--text-secondary);">
+      <strong>Горячие клавиши:</strong> G (перемещение) · R (вращение) · S (масштаб) · F (фокус) · D (дублировать) · Del (удалить) · Esc (сброс) · Ctrl+Z/Y (отмена/повтор)
+    </div>
+    <button class="btn btn-primary" style="margin-top: 20px;" onclick="closeTutorial()">Начать работу</button>
+  </div>
+</div>
+
+<div class="context-menu" id="contextMenu">
+  <div class="ctx-item" onclick="duplicateSelected()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Дублировать <span class="shortcut">D</span></div>
+  <div class="ctx-item" onclick="deleteSelected()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить <span class="shortcut">Del</span></div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="focusSelected()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>Фокус <span class="shortcut">F</span></div>
+  <div class="ctx-item" onclick="hideSelected()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><line x1="1" y1="1" x2="23" y2="23"/></svg>Скрыть</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="resetTransform()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Сбросить трансформацию</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="mobile-nav">
+  <button class="tool-btn" onclick="toggleMobilePanel('left')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Инструменты</button>
+  <button class="tool-btn" onclick="setView('iso')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>3D</button>
+  <button class="tool-btn" onclick="showExportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Экспорт</button>
+  <button class="tool-btn" onclick="toggleMobilePanel('right')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 9 19.4"/></svg>Свойства</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============================================================
+// CSG - Constructive Solid Geometry
+// ============================================================
+const CSG = (() => {
+  class Vertex {
+    constructor(pos, norm) {
+      this.pos = pos.clone();
+      this.norm = norm ? norm.clone() : new THREE.Vector3();
+    }
+    clone() { return new Vertex(this.pos, this.norm); }
+    negate() { this.pos.negate(); this.norm.negate(); return this; }
+  }
+
+  class Polygon {
+    constructor(vertices, shared) {
+      this.vertices = vertices;
+      this.shared = shared;
+      this.plane = this.computePlane();
+    }
+    computePlane() {
+      const vs = this.vertices;
+      const a = vs[0].pos, b = vs[1].pos, c = vs[2].pos;
+      const n = new THREE.Vector3().crossVectors(
+        new THREE.Vector3().subVectors(b, a),
+        new THREE.Vector3().subVectors(c, a)
+      ).normalize();
+      return { normal: n, w: n.dot(a) };
+    }
+    flip() {
+      this.vertices.reverse().forEach(v => v.negate());
+      this.plane.normal.negate();
+      this.plane.w *= -1;
+    }
+  }
+
+  class Node {
+    constructor(polys) {
+      this.plane = null;
+      this.front = null;
+      this.back = null;
+      this.polygons = [];
+      if (polys && polys.length) this.build(polys);
+    }
+    clone() {
+      const n = new Node();
+      n.plane = this.plane ? { normal: this.plane.normal.clone(), w: this.plane.w } : null;
+      n.front = this.front ? this.front.clone() : null;
+      n.back = this.back ? this.back.clone() : null;
+      n.polygons = this.polygons.map(p => {
+        const vs = p.vertices.map(v => v.clone());
+        return new Polygon(vs, p.shared);
+      });
+      return n;
+    }
+    flip() {
+      this.polygons.forEach(p => p.flip());
+      if (this.plane) {
+        this.plane.normal.negate();
+        this.plane.w *= -1;
+      }
+      const temp = this.front;
+      this.front = this.back;
+      this.back = temp;
+      if (this.front) this.front.flip();
+      if (this.back) this.back.flip();
+    }
+    build(polys) {
+      if (!polys || !polys.length) return;
+      if (!this.plane) {
+        this.plane = { normal: polys[0].plane.normal.clone(), w: polys[0].plane.w };
+      }
+      const frontList = [], backList = [];
+      for (const p of polys) this.splitPolygon(p, frontList, backList);
+      if (frontList.length) { if (!this.front) this.front = new Node(); this.front.build(frontList); }
+      if (backList.length) { if (!this.back) this.back = new Node(); this.back.build(backList); }
+    }
+    splitPolygon(poly, frontList, backList) {
+      const plane = this.plane;
+      let typeCounts = [0, 0, 0, 0];
+      const vertTypes = [];
+      for (const v of poly.vertices) {
+        const t = plane.normal.dot(v.pos) - plane.w;
+        let type = t < -1e-5 ? 2 : t > 1e-5 ? 1 : 0;
+        vertTypes.push(type);
+        typeCounts[type]++;
+      }
+      if (typeCounts[0] === poly.vertices.length) { this.polygons.push(poly); return; }
+      if (typeCounts[1] && !typeCounts[2] && !typeCounts[0]) { frontList.push(poly); return; }
+      if (typeCounts[2] && !typeCounts[1] && !typeCounts[0]) { backList.push(poly); return; }
+      if (typeCounts[0] && (typeCounts[1] || typeCounts[2])) { frontList.push(poly); backList.push(poly); return; }
+
+      const fVerts = [], bVerts = [];
+      for (let i = 0; i < poly.vertices.length; i++) {
+        const j = (i + 1) % poly.vertices.length;
+        const vi = poly.vertices[i], vj = poly.vertices[j];
+        const ti = vertTypes[i], tj = vertTypes[j];
+        if (ti !== 2) fVerts.push(vi);
+        if (ti !== 1) bVerts.push(vi);
+        if ((ti | tj) === 3) {
+          const denom = plane.normal.dot(new THREE.Vector3().subVectors(vj.pos, vi.pos));
+          const t = denom !== 0 ? (plane.w - plane.normal.dot(vi.pos)) / denom : 0;
+          const clampedT = Math.max(0, Math.min(1, t));
+          const newV = new Vertex(
+            new THREE.Vector3().lerpVectors(vi.pos, vj.pos, clampedT),
+            new THREE.Vector3().lerpVectors(vi.norm, vj.norm, clampedT).normalize()
+          );
+          fVerts.push(newV);
+          bVerts.push(newV);
+        }
+      }
+      if (fVerts.length >= 3) frontList.push(new Polygon(fVerts, poly.shared));
+      if (bVerts.length >= 3) backList.push(new Polygon(bVerts, poly.shared));
+    }
+    clipPolygons(polygons) {
+      if (!this.plane) return polygons.slice();
+      const frontList = [], backList = [];
+      for (const p of polygons) this.splitPolygon(p, frontList, backList);
+      let fr = frontList, br = backList;
+      if (this.front) fr = this.front.clipPolygons(fr);
+      if (this.back) br = this.back.clipPolygons(br);
+      return br.concat(fr);
+    }
+    clipTo(bsp) {
+      this.polygons = bsp.clipPolygons(this.polygons);
+      if (this.front) this.front.clipTo(bsp);
+      if (this.back) this.back.clipTo(bsp);
+    }
+    allPolygons() {
+      let r = this.polygons.slice();
+      if (this.front) r = r.concat(this.front.allPolygons());
+      if (this.back) r = r.concat(this.back.allPolygons());
+      return r;
+    }
+  }
+
+  function meshToCSG(mesh) {
+    const geo = mesh.geometry.clone();
+    geo.applyMatrix4(mesh.matrixWorld);
+    geo.computeVertexNormals();
+    const pos = geo.getAttribute('position');
+    const norm = geo.getAttribute('normal');
+    const idx = geo.getIndex();
+    const polys = [];
+    const triIndices = [];
+    if (idx) { for (let i = 0; i < idx.count; i += 3) triIndices.push([idx.getX(i), idx.getX(i+1), idx.getX(i+2)]); }
+    else { for (let i = 0; i < pos.count; i += 3) triIndices.push([i, i+1, i+2]); }
+    for (const [ai, bi, ci] of triIndices) {
+      polys.push(new Polygon([
+        new Vertex(new THREE.Vector3(pos.getX(ai), pos.getY(ai), pos.getZ(ai)), new THREE.Vector3(norm.getX(ai), norm.getY(ai), norm.getZ(ai))),
+        new Vertex(new THREE.Vector3(pos.getX(bi), pos.getY(bi), pos.getZ(bi)), new THREE.Vector3(norm.getX(bi), norm.getY(bi), norm.getZ(bi))),
+        new Vertex(new THREE.Vector3(pos.getX(ci), pos.getY(ci), pos.getZ(ci)), new THREE.Vector3(norm.getX(ci), norm.getY(ci), norm.getZ(ci)))
+      ], { material: mesh.material.clone() }));
+    }
+    geo.dispose();
+    return new Node(polys);
+  }
+
+  function csgToMesh(bsp, fallbackMat) {
+    const polys = bsp.allPolygons();
+    const positions = [], normals = [];
+    for (const p of polys) {
+      const vs = p.vertices;
+      const n = p.plane.normal;
+      for (let i = 2; i < vs.length; i++) {
+        positions.push(vs[0].pos.x, vs[0].pos.y, vs[0].pos.z, vs[i-1].pos.x, vs[i-1].pos.y, vs[i-1].pos.z, vs[i].pos.x, vs[i].pos.y, vs[i].pos.z);
+        normals.push(n.x, n.y, n.z, n.x, n.y, n.z, n.x, n.y, n.z);
+      }
+    }
+    if (positions.length === 0) return new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.001, 0.001), fallbackMat || new THREE.MeshStandardMaterial());
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    const m = new THREE.Mesh(geo, fallbackMat || new THREE.MeshStandardMaterial());
+    m.castShadow = true; m.receiveShadow = true;
+    return m;
+  }
+
+  return {
+    union(a, b, mat) {
+      const aB = meshToCSG(a), bB = meshToCSG(b);
+      aB.clipTo(bB); bB.clipTo(aB);
+      bB.flip(); bB.clipTo(aB); bB.flip();
+      aB.build(bB.allPolygons());
+      return csgToMesh(aB, mat);
+    },
+    subtract(a, b, mat) {
+      const aB = meshToCSG(a), bB = meshToCSG(b);
+      aB.flip(); aB.clipTo(bB);
+      bB.clipTo(aB); bB.flip(); bB.clipTo(aB); bB.flip();
+      aB.build(bB.allPolygons()); aB.flip();
+      return csgToMesh(aB, mat);
+    },
+    intersect(a, b, mat) {
+      const aB = meshToCSG(a), bB = meshToCSG(b);
+      bB.flip(); aB.clipTo(bB);
+      bB.clipTo(aB); bB.flip();
+      aB.clipTo(bB); bB.clipTo(aB);
+      aB.build(bB.allPolygons()); aB.flip();
+      return csgToMesh(aB, mat);
+    }
+  };
+})();
+
+// ============================================================
+// Reliable file download helper
+// ============================================================
+function downloadFile(filename, content, mimeType) {
+  // Create blob
+  let blob;
+  if (content instanceof Blob) {
+    blob = content;
+  } else if (content instanceof ArrayBuffer) {
+    blob = new Blob([content], { type: mimeType });
+  } else {
+    blob = new Blob([content], { type: mimeType });
+  }
+
+  // Method 1: Object URL + anchor click (most reliable)
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+  document.body.appendChild(a);
+
+  try {
+    // Try standard click
+    a.click();
+    console.log('Download triggered for:', filename, 'size:', blob.size, 'bytes');
+  } catch(e) {
+    console.warn('Direct click failed, trying dispatchEvent:', e);
+    // Fallback: dispatch MouseEvent
+    const event = new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true
+    });
+    a.dispatchEvent(event);
+  }
+
+  // Cleanup after a delay to ensure download starts
+  setTimeout(() => {
+    try {
+      if (document.body.contains(a)) document.body.removeChild(a);
+    } catch(e) {}
+    URL.revokeObjectURL(url);
+  }, 2000);
+}
+
+// ============================================================
+// Main Application
+// ============================================================
+const APP = {
+  scene: null, camera: null, renderer: null,
+  objects: [], selectedObject: null, selectedObjects: [],
+  objectCounter: 0, isDarkTheme: true, snapEnabled: true,
+  transformMode: 'translate', measureMode: null,
+  undoStack: [], redoStack: [], maxUndo: 30,
+  raycaster: new THREE.Raycaster(),
+  mouse: new THREE.Vector2(),
+  measurePoints: [], measureLine: null,
+  clock: new THREE.Clock(), frameCount: 0, fps: 60,
+  isOrbiting: false, isPanning: false,
+  prevMouse: { x: 0, y: 0 },
+  spherical: { theta: Math.PI / 4, phi: Math.PI / 3, radius: 12 },
+  target: new THREE.Vector3(0, 0, 0),
+  gridHelper: null
+};
+
+function init() {
+  const viewport = document.getElementById('viewport');
+  
+  APP.scene = new THREE.Scene();
+  APP.scene.background = new THREE.Color('#1a1a2e');
+  APP.scene.fog = new THREE.Fog('#1a1a2e', 50, 200);
+
+  APP.camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
+  updateCamera();
+
+  APP.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  APP.renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+  APP.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  APP.renderer.shadowMap.enabled = true;
+  APP.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  APP.renderer.outputEncoding = THREE.sRGBEncoding;
+  APP.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  APP.renderer.toneMappingExposure = 1.2;
+  viewport.insertBefore(APP.renderer.domElement, viewport.firstChild);
+
+  setupLighting();
+
+  APP.gridHelper = new THREE.GridHelper(20, 20, '#333355', '#222244');
+  APP.scene.add(APP.gridHelper);
+
+  const ag = new THREE.Group();
+  ag.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(5,0,0)]), new THREE.LineBasicMaterial({ color: '#e94560' })));
+  ag.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,5,0)]), new THREE.LineBasicMaterial({ color: '#4caf50' })));
+  ag.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,0,5)]), new THREE.LineBasicMaterial({ color: '#2196f3' })));
+  APP.scene.add(ag);
+
+  setupEvents();
+  setupResizeHandles();
+  animate();
+  
+  setTimeout(() => showTutorial(), 500);
+}
+
+function updateCamera() {
+  const s = APP.spherical;
+  const phi = Math.max(0.05, Math.min(Math.PI - 0.05, s.phi));
+  APP.camera.position.set(
+    APP.target.x + s.radius * Math.sin(phi) * Math.sin(s.theta),
+    APP.target.y + s.radius * Math.cos(phi),
+    APP.target.z + s.radius * Math.sin(phi) * Math.cos(s.theta)
+  );
+  APP.camera.lookAt(APP.target);
+}
+
+function setupLighting() {
+  APP.scene.add(new THREE.AmbientLight(0x404060, 0.5));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+  dl.position.set(10, 15, 10);
+  dl.castShadow = true;
+  dl.shadow.mapSize.set(2048, 2048);
+  dl.shadow.camera.near = 0.5; dl.shadow.camera.far = 50;
+  dl.shadow.camera.left = -15; dl.shadow.camera.right = 15;
+  dl.shadow.camera.top = 15; dl.shadow.camera.bottom = -15;
+  APP.scene.add(dl);
+  const fl = new THREE.DirectionalLight(0x8888ff, 0.3);
+  fl.position.set(-10, 5, -10);
+  APP.scene.add(fl);
+  APP.scene.add(new THREE.PointLight(0xe94560, 0.3, 30).translateY(10).translateZ(-10));
+  APP.scene.add(new THREE.HemisphereLight(0x606080, 0x404040, 0.4));
+}
+
+// ========== Custom Primitives ==========
+function showCustomForm(type) {
+  hideCustomForms();
+  const map = { box: 'customBoxForm', sphere: 'customSphereForm', cylinder: 'customCylinderForm', cone: 'customConeForm', torus: 'customTorusForm', plane: 'customPlaneForm' };
+  const el = document.getElementById(map[type]);
+  if (el) { el.classList.add('visible'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+
+function hideCustomForms() {
+  document.querySelectorAll('.custom-form').forEach(f => f.classList.remove('visible'));
+}
+
+function addObject(type, name, geo, params, color, yPos) {
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), metalness: 0.3, roughness: 0.5 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.position.y = yPos || 0.5;
+  
+  APP.objectCounter++;
+  const obj = { id: APP.objectCounter, name: `${name}_${APP.objectCounter}`, mesh, type, visible: true, params: {...params}, color: color.replace('#','') };
+  
+  APP.scene.add(mesh);
+  APP.objects.push(obj);
+  
+  const eg = new THREE.EdgesGeometry(geo);
+  const em = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 });
+  const edges = new THREE.LineSegments(eg, em);
+  mesh.add(edges);
+  obj.edges = edges;
+  
+  selectObject(obj);
+  updateSceneTree();
+  saveState();
+  showNotification(`Создан: ${obj.name}`, 'success');
+  return mesh;
+}
+
+function createCustomBox() {
+  const w = parseFloat(document.getElementById('boxW').value) || 1;
+  const h = parseFloat(document.getElementById('boxH').value) || 1;
+  const d = parseFloat(document.getElementById('boxD').value) || 1;
+  addObject('box', 'Куб', new THREE.BoxGeometry(w, h, d), {width:w, height:h, depth:d}, document.getElementById('boxColor').value, h/2);
+  hideCustomForms();
+}
+
+function createCustomSphere() {
+  const r = parseFloat(document.getElementById('sphereR').value) || 0.5;
+  const s = Math.min(128, Math.max(4, parseInt(document.getElementById('sphereSeg').value) || 32));
+  addObject('sphere', 'Сфера', new THREE.SphereGeometry(r, s, s), {width:r, height:r, depth:r, segments:s}, document.getElementById('sphereColor').value, r);
+  hideCustomForms();
+}
+
+function createCustomCylinder() {
+  const r = parseFloat(document.getElementById('cylR').value) || 0.5;
+  const h = parseFloat(document.getElementById('cylH').value) || 1;
+  const s = Math.min(128, Math.max(3, parseInt(document.getElementById('cylSeg').value) || 32));
+  addObject('cylinder', 'Цилиндр', new THREE.CylinderGeometry(r, r, h, s), {width:r, height:h, depth:r, segments:s}, document.getElementById('cylColor').value, h/2);
+  hideCustomForms();
+}
+
+function createCustomCone() {
+  const r = parseFloat(document.getElementById('coneR').value) || 0.5;
+  const h = parseFloat(document.getElementById('coneH').value) || 1;
+  const s = Math.min(128, Math.max(3, parseInt(document.getElementById('coneSeg').value) || 32));
+  addObject('cone', 'Конус', new THREE.ConeGeometry(r, h, s), {width:r, height:h, depth:r, segments:s}, document.getElementById('coneColor').value, h/2);
+  hideCustomForms();
+}
+
+function createCustomTorus() {
+  const r = parseFloat(document.getElementById('torusR').value) || 0.5;
+  const t = parseFloat(document.getElementById('torusT').value) || 0.2;
+  const s = Math.min(128, Math.max(4, parseInt(document.getElementById('torusSeg').value) || 32));
+  addObject('torus', 'Тор', new THREE.TorusGeometry(r, t, 16, s), {width:r, height:t, depth:r, segments:s}, document.getElementById('torusColor').value, r);
+  hideCustomForms();
+}
+
+function createCustomPlane() {
+  const w = parseFloat(document.getElementById('planeW').value) || 2;
+  const d = parseFloat(document.getElementById('planeD').value) || 2;
+  const m = addObject('plane', 'Плоскость', new THREE.PlaneGeometry(w, d), {width:w, height:d, depth:0.01}, document.getElementById('planeColor').value, 0);
+  if (m) m.rotation.x = -Math.PI / 2;
+  hideCustomForms();
+}
+
+// ========== Selection ==========
+function selectObject(obj) {
+  deselectAll();
+  APP.selectedObject = obj;
+  APP.selectedObjects = [obj];
+  if (obj.edges) { obj.edges.material.opacity = 0.6; obj.edges.material.color.set(0xe94560); }
+  updatePropertiesPanel();
+  updateSceneTree();
+  updateStatusBar();
+}
+
+function toggleObjectSelection(obj) {
+  const idx = APP.selectedObjects.indexOf(obj);
+  if (idx >= 0) {
+    APP.selectedObjects.splice(idx, 1);
+    if (obj.edges) obj.edges.material.opacity = 0;
+  } else {
+    APP.selectedObjects.push(obj);
+    if (obj.edges) obj.edges.material.opacity = 0.6;
+  }
+  APP.selectedObject = APP.selectedObjects[APP.selectedObjects.length - 1] || null;
+  const sc = document.getElementById('selectionCount');
+  if (APP.selectedObjects.length > 1) { sc.textContent = `Выбрано: ${APP.selectedObjects.length}`; sc.classList.add('visible'); }
+  else { sc.classList.remove('visible'); }
+  updatePropertiesPanel();
+  updateSceneTree();
+  updateStatusBar();
+}
+
+function deselectAll() {
+  APP.selectedObjects.forEach(o => { if (o.edges) o.edges.material.opacity = 0; });
+  APP.selectedObject = null;
+  APP.selectedObjects = [];
+  document.getElementById('selectionCount').classList.remove('visible');
+  updatePropertiesPanel();
+  updateSceneTree();
+  updateStatusBar();
+}
+
+// ========== Properties ==========
+function updatePropertiesPanel() {
+  const noSel = document.getElementById('noSelection');
+  const propContent = document.getElementById('propContent');
+  const noParam = document.getElementById('noParamMsg');
+  const paramContent = document.getElementById('paramContent');
+  
+  if (!APP.selectedObject) {
+    noSel.style.display = 'block'; propContent.style.display = 'none';
+    noParam.style.display = 'block'; paramContent.style.display = 'none';
+    return;
+  }
+  
+  noSel.style.display = 'none'; propContent.style.display = 'block';
+  
+  const obj = APP.selectedObject, m = obj.mesh;
+  document.getElementById('propName').value = obj.name;
+  document.getElementById('propX').value = +m.position.x.toFixed(3);
+  document.getElementById('propY').value = +m.position.y.toFixed(3);
+  document.getElementById('propZ').value = +m.position.z.toFixed(3);
+  document.getElementById('propRX').value = +THREE.MathUtils.radToDeg(m.rotation.x).toFixed(2);
+  document.getElementById('propRY').value = +THREE.MathUtils.radToDeg(m.rotation.y).toFixed(2);
+  document.getElementById('propRZ').value = +THREE.MathUtils.radToDeg(m.rotation.z).toFixed(2);
+  document.getElementById('propSX').value = +m.scale.x.toFixed(3);
+  document.getElementById('propSY').value = +m.scale.y.toFixed(3);
+  document.getElementById('propSZ').value = +m.scale.z.toFixed(3);
+  document.getElementById('propColor').value = '#' + obj.color;
+  document.getElementById('propOpacity').value = m.material.opacity;
+  document.getElementById('opacityVal').textContent = Math.round((m.material.opacity || 1) * 100) + '%';
+  document.getElementById('metalness').value = m.material.metalness;
+  document.getElementById('metalnessVal').textContent = m.material.metalness.toFixed(2);
+  document.getElementById('roughness').value = m.material.roughness;
+  document.getElementById('roughnessVal').textContent = m.material.roughness.toFixed(2);
+  
+  const hasParams = ['box','sphere','cylinder','cone','torus','plane'].includes(obj.type);
+  if (hasParams && obj.params) {
+    noParam.style.display = 'none'; paramContent.style.display = 'block';
+    document.getElementById('paramWidth').value = obj.params.width || 1;
+    document.getElementById('paramHeight').value = obj.params.height || 1;
+    document.getElementById('paramDepth').value = obj.params.depth || 1;
+    document.getElementById('paramSegments').value = obj.params.segments || 32;
+  } else { noParam.style.display = 'block'; paramContent.style.display = 'none'; }
+}
+
+function updateProp(axis, value) {
+  if (!APP.selectedObject) return;
+  const m = APP.selectedObject.mesh, v = parseFloat(value);
+  if (isNaN(v)) return;
+  switch(axis) {
+    case 'x': m.position.x = v; break;
+    case 'y': m.position.y = v; break;
+    case 'z': m.position.z = v; break;
+    case 'rx': m.rotation.x = THREE.MathUtils.degToRad(v); break;
+    case 'ry': m.rotation.y = THREE.MathUtils.degToRad(v); break;
+    case 'rz': m.rotation.z = THREE.MathUtils.degToRad(v); break;
+    case 'sx': m.scale.x = Math.max(0.01, v); break;
+    case 'sy': m.scale.y = Math.max(0.01, v); break;
+    case 'sz': m.scale.z = Math.max(0.01, v); break;
+  }
+  updatePropertiesPanel();
+  saveState();
+}
+
+function updateObjectName(name) { if (!APP.selectedObject) return; APP.selectedObject.name = name; updateSceneTree(); }
+function updateObjectColor(hex) { if (!APP.selectedObject) return; APP.selectedObject.mesh.material.color.set(hex); APP.selectedObject.color = hex.replace('#',''); }
+
+function updateObjectOpacity(val) {
+  if (!APP.selectedObject) return;
+  const v = parseFloat(val);
+  APP.selectedObject.mesh.material.transparent = v < 1;
+  APP.selectedObject.mesh.material.opacity = v;
+  APP.selectedObject.mesh.material.needsUpdate = true;
+  document.getElementById('opacityVal').textContent = Math.round(v * 100) + '%';
+}
+
+function updateParam(param, value) {
+  if (!APP.selectedObject) return;
+  const v = parseFloat(value);
+  if (isNaN(v)) return;
+  APP.selectedObject.params[param] = v;
+  const mesh = APP.selectedObject.mesh;
+  const op = mesh.position.clone(), or = mesh.rotation.clone(), os = mesh.scale.clone();
+  const seg = APP.selectedObject.params.segments || 32;
+  let ng;
+  switch(APP.selectedObject.type) {
+    case 'box': ng = new THREE.BoxGeometry(APP.selectedObject.params.width||1, APP.selectedObject.params.height||1, APP.selectedObject.params.depth||1); break;
+    case 'sphere': ng = new THREE.SphereGeometry(APP.selectedObject.params.width||0.5, seg, seg); break;
+    case 'cylinder': ng = new THREE.CylinderGeometry(APP.selectedObject.params.width||0.5, APP.selectedObject.params.width||0.5, APP.selectedObject.params.height||1, seg); break;
+    case 'cone': ng = new THREE.ConeGeometry(APP.selectedObject.params.width||0.5, APP.selectedObject.params.height||1, seg); break;
+    case 'torus': ng = new THREE.TorusGeometry(APP.selectedObject.params.width||0.5, APP.selectedObject.params.height||0.2, 16, 48); break;
+    default: return;
+  }
+  const oldEdges = mesh.children.find(c => c.isLineSegments);
+  if (oldEdges) mesh.remove(oldEdges);
+  mesh.geometry.dispose();
+  mesh.geometry = ng;
+  const eg = new THREE.EdgesGeometry(ng);
+  const em = new THREE.LineBasicMaterial({ color: 0xe94560, transparent: true, opacity: 0.6 });
+  const edges = new THREE.LineSegments(eg, em);
+  mesh.add(edges); APP.selectedObject.edges = edges;
+  mesh.position.copy(op); mesh.rotation.copy(or); mesh.scale.copy(os);
+  updatePropertiesPanel();
+  saveState();
+}
+
+function changeMaterial(type) {
+  if (!APP.selectedObject) return;
+  const m = APP.selectedObject.mesh.material;
+  switch(type) {
+    case 'metallic': m.metalness=0.9; m.roughness=0.2; m.wireframe=false; break;
+    case 'glossy': m.metalness=0.1; m.roughness=0.1; m.wireframe=false; break;
+    case 'matte': m.metalness=0; m.roughness=0.9; m.wireframe=false; break;
+    case 'wireframe': m.wireframe=true; break;
+    default: m.metalness=0.3; m.roughness=0.5; m.wireframe=false;
+  }
+  m.needsUpdate = true; updatePropertiesPanel();
+}
+
+function updateMaterialProps() {
+  if (!APP.selectedObject) return;
+  const m = APP.selectedObject.mesh.material;
+  m.metalness = parseFloat(document.getElementById('metalness').value);
+  m.roughness = parseFloat(document.getElementById('roughness').value);
+  document.getElementById('metalnessVal').textContent = m.metalness.toFixed(2);
+  document.getElementById('roughnessVal').textContent = m.roughness.toFixed(2);
+  m.needsUpdate = true;
+}
+
+function quickColor(hex) {
+  if (!APP.selectedObject) return;
+  APP.selectedObject.mesh.material.color.set(hex);
+  APP.selectedObject.color = hex.replace('#','');
+  document.getElementById('propColor').value = hex;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  saveState();
+}
+
+function applyFillet() {
+  if (!APP.selectedObject) { showNotification('Выберите объект','error'); return; }
+  const r = parseFloat(document.getElementById('filletRadius').value) || 0.05;
+  if (APP.selectedObject.type === 'box') {
+    const segs = Math.max(2, Math.round(r * 20));
+    replaceGeometry(new THREE.BoxGeometry(APP.selectedObject.params.width||1, APP.selectedObject.params.height||1, APP.selectedObject.params.depth||1, segs, segs, segs));
+  }
+  showNotification(`Скругление применено (r=${r})`, 'success');
+  saveState();
+}
+
+function applyChamfer() {
+  if (!APP.selectedObject) { showNotification('Выберите объект','error'); return; }
+  const s = parseFloat(document.getElementById('chamferSize').value) || 0.05;
+  APP.selectedObject.mesh.scale.multiplyScalar(1 - s * 0.1);
+  updatePropertiesPanel();
+  showNotification(`Фаска применена (${s})`, 'success');
+  saveState();
+}
+
+function replaceGeometry(newGeo) {
+  const mesh = APP.selectedObject.mesh;
+  const op = mesh.position.clone(), or = mesh.rotation.clone(), os = mesh.scale.clone();
+  const oldEdges = mesh.children.find(c => c.isLineSegments);
+  if (oldEdges) mesh.remove(oldEdges);
+  mesh.geometry.dispose();
+  mesh.geometry = newGeo;
+  const eg = new THREE.EdgesGeometry(newGeo);
+  const em = new THREE.LineBasicMaterial({ color: 0xe94560, transparent: true, opacity: 0.6 });
+  const edges = new THREE.LineSegments(eg, em);
+  mesh.add(edges); APP.selectedObject.edges = edges;
+  mesh.position.copy(op); mesh.rotation.copy(or); mesh.scale.copy(os);
+  updatePropertiesPanel();
+}
+
+// ========== Transform Mode ==========
+function setTransformMode(mode) {
+  APP.transformMode = mode;
+  document.getElementById('btnMove').classList.toggle('active', mode==='translate');
+  document.getElementById('btnRotate').classList.toggle('active', mode==='rotate');
+  document.getElementById('btnScale').classList.toggle('active', mode==='scale');
+  const names = {translate:'Перемещение', rotate:'Вращение', scale:'Масштабирование'};
+  document.getElementById('statusMode').textContent = `Режим: ${names[mode]}`;
+}
+
+// ========== Measurement ==========
+function setMeasureMode(mode) {
+  clearMeasurements();
+  if (APP.measureMode === mode) {
+    APP.measureMode = null;
+    document.getElementById('measurementDisplay').classList.remove('visible');
+    document.getElementById('statusMode').textContent = 'Режим: Выбор';
+    ['measureDistBtn','measureAngleBtn','measureAreaBtn'].forEach(id => document.getElementById(id).classList.remove('active'));
+    return;
+  }
+  APP.measureMode = mode;
+  APP.measurePoints = [];
+  document.getElementById('measureDistBtn').classList.toggle('active', mode==='distance');
+  document.getElementById('measureAngleBtn').classList.toggle('active', mode==='angle');
+  document.getElementById('measureAreaBtn').classList.toggle('active', mode==='area');
+  const labels = {distance:'Расстояние', angle:'Угол', area:'Площадь'};
+  document.getElementById('measureLabel').textContent = labels[mode];
+  document.getElementById('measurementDisplay').classList.add('visible');
+  document.getElementById('measurementValue').textContent = '—';
+  document.getElementById('measureDetail').textContent = 'Кликайте по поверхности или сетке';
+  document.getElementById('statusMode').textContent = `Измерение: ${labels[mode]}`;
+}
+
+function clearMeasurements() {
+  APP.measurePoints = [];
+  if (APP.measureLine) { APP.scene.remove(APP.measureLine); APP.measureLine = null; }
+  APP.scene.children.filter(c => c.userData && c.userData.isMarker).forEach(c => APP.scene.remove(c));
+}
+
+function addMeasurePoint(pt3d) {
+  if (!APP.measureMode) return;
+  APP.measurePoints.push(pt3d.clone());
+  
+  if (APP.measureMode === 'distance' && APP.measurePoints.length === 2) {
+    const p1 = APP.measurePoints[0], p2 = APP.measurePoints[1];
+    const dist = p1.distanceTo(p2);
+    document.getElementById('measurementValue').textContent = dist.toFixed(4);
+    document.getElementById('measureDetail').textContent = `ΔX:${(p2.x-p1.x).toFixed(2)} ΔY:${(p2.y-p1.y).toFixed(2)} ΔZ:${(p2.z-p1.z).toFixed(2)}`;
+    drawMeasureLine([p1, p2], 0xffc107);
+    addMarker(p1, 0xffc107); addMarker(p2, 0xffc107);
+    APP.measurePoints = [];
+  } else if (APP.measureMode === 'angle' && APP.measurePoints.length === 3) {
+    const p1 = APP.measurePoints[0], p2 = APP.measurePoints[1], p3 = APP.measurePoints[2];
+    const v1 = new THREE.Vector3().subVectors(p1, p2), v2 = new THREE.Vector3().subVectors(p3, p2);
+    const deg = THREE.MathUtils.radToDeg(v1.angleTo(v2));
+    document.getElementById('measurementValue').textContent = deg.toFixed(2) + '°';
+    document.getElementById('measureDetail').textContent = `Вершина: (${p2.x.toFixed(2)}, ${p2.y.toFixed(2)}, ${p2.z.toFixed(2)})`;
+    drawMeasureLine([p1, p2, p3], 0x2196f3);
+    APP.measurePoints = [];
+  } else if (APP.measureMode === 'area' && APP.measurePoints.length === 3) {
+    const p1 = APP.measurePoints[0], p2 = APP.measurePoints[1], p3 = APP.measurePoints[2];
+    const a = p2.distanceTo(p3), b = p1.distanceTo(p3), c = p1.distanceTo(p2);
+    const s = (a+b+c)/2, area = Math.sqrt(Math.max(0, s*(s-a)*(s-b)*(s-c)));
+    document.getElementById('measurementValue').textContent = area.toFixed(4);
+    document.getElementById('measureDetail').textContent = `a=${a.toFixed(2)} b=${b.toFixed(2)} c=${c.toFixed(2)}`;
+    drawMeasureLine([p1, p2, p3, p1], 0x4caf50);
+    APP.measurePoints = [];
+  } else {
+    const count = APP.measurePoints.length;
+    const maxPts = APP.measureMode === 'distance' ? 2 : 3;
+    document.getElementById('measurementValue').textContent = `Точка ${count}/${maxPts}`;
+    document.getElementById('measureDetail').textContent = `(${pt3d.x.toFixed(2)}, ${pt3d.y.toFixed(2)}, ${pt3d.z.toFixed(2)})`;
+    addMarker(pt3d, 0xffffff);
+  }
+}
+
+function drawMeasureLine(points, color) {
+  if (APP.measureLine) APP.scene.remove(APP.measureLine);
+  APP.measureLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({ color, linewidth: 2 })
+  );
+  APP.scene.add(APP.measureLine);
+}
+
+function addMarker(pt, color) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({color}));
+  m.position.copy(pt); m.userData.isMarker = true;
+  APP.scene.add(m);
+}
+
+// ========== View ==========
+function setView(view) {
+  const s = APP.spherical;
+  switch(view) {
+    case 'iso': s.theta=Math.PI/4; s.phi=Math.PI/3; s.radius=12; break;
+    case 'front': s.theta=0; s.phi=Math.PI/2; s.radius=10; break;
+    case 'top': s.theta=0; s.phi=0.01; s.radius=12; break;
+    case 'right': s.theta=Math.PI/2; s.phi=Math.PI/2; s.radius=10; break;
+    case 'perspective': s.theta=Math.PI/6; s.phi=Math.PI/4; s.radius=15; break;
+  }
+  updateCamera();
+}
+
+function toggleSnap() {
+  APP.snapEnabled = !APP.snapEnabled;
+  document.getElementById('snapDot').classList.toggle('active', APP.snapEnabled);
+  document.getElementById('snapText').textContent = `Привязка: ${APP.snapEnabled?'ВКЛ':'ВЫКЛ'}`;
+  document.getElementById('statusSnap').textContent = `Привязка: ${APP.snapEnabled?'ВКЛ':'ВЫКЛ'}`;
+}
+
+// ========== Scene Tree ==========
+function updateSceneTree() {
+  const c = document.getElementById('sceneTreeContent');
+  c.innerHTML = '';
+  APP.objects.forEach(obj => {
+    const item = document.createElement('div');
+    item.className = 'tree-item' + (APP.selectedObjects.includes(obj) ? ' selected' : '');
+    item.onclick = (e) => { if (e.shiftKey) toggleObjectSelection(obj); else selectObject(obj); };
+    const icons = {box:'📦', sphere:'🔵', cylinder:'🛢', cone:'🔺', torus:'🍩', plane:'⬜', union:'🔗', stl:'📄', obj:'📄'};
+    item.innerHTML = `<span style="font-size:14px">${icons[obj.type]||'📐'}</span><span class="name">${obj.name}</span><button class="visibility-toggle" onclick="event.stopPropagation();toggleVisibility(${obj.id})">${obj.visible?'👁':'‍🗨'}</button>`;
+    c.appendChild(item);
+  });
+  document.getElementById('infoObjects').textContent = `Объектов: ${APP.objects.length}`;
+}
+
+function toggleVisibility(id) {
+  const obj = APP.objects.find(o => o.id === id);
+  if (!obj) return;
+  obj.visible = !obj.visible;
+  obj.mesh.visible = obj.visible;
+  updateSceneTree();
+}
+
+// ========== CSG ==========
+function csgBoolean(operation) {
+  if (APP.selectedObjects.length !== 2) {
+    const info = document.getElementById('boolInfo');
+    info.textContent = '⚠️ Выберите ровно 2 объекта! (Shift+клик для мульти-выбора)';
+    info.classList.add('visible');
+    setTimeout(() => info.classList.remove('visible'), 4000);
+    showNotification('Выберите 2 объекта для CSG', 'error');
+    return;
+  }
+  
+  document.getElementById('loadingOverlay').classList.add('visible');
+  
+  setTimeout(() => {
+    try {
+      const a = APP.selectedObjects[0], b = APP.selectedObjects[1];
+      const mat = a.mesh.material.clone();
+      let resultMesh;
+      switch(operation) {
+        case 'union': resultMesh = CSG.union(a.mesh, b.mesh, mat); break;
+        case 'subtract': resultMesh = CSG.subtract(a.mesh, b.mesh, mat); break;
+        case 'intersect': resultMesh = CSG.intersect(a.mesh, b.mesh, mat); break;
+      }
+      
+      APP.scene.remove(a.mesh); APP.scene.remove(b.mesh);
+      APP.objects = APP.objects.filter(o => o !== a && o !== b);
+      
+      APP.objectCounter++;
+      const names = {union:'Объединение', subtract:'Вычитание', intersect:'Пересечение'};
+      const newObj = { id:APP.objectCounter, name:`${names[operation]}_${APP.objectCounter}`, mesh:resultMesh, type:'union', visible:true, params:{width:1,height:1,depth:1}, color:mat.color.getHexString() };
+      
+      APP.scene.add(resultMesh);
+      APP.objects.push(newObj);
+      
+      const eg = new THREE.EdgesGeometry(resultMesh.geometry);
+      const em = new THREE.LineBasicMaterial({color:0xe94560, transparent:true, opacity:0.6});
+      const edges = new THREE.LineSegments(eg, em);
+      resultMesh.add(edges);
+      newObj.edges = edges;
+      
+      selectObject(newObj); updateSceneTree(); saveState();
+      showNotification(`CSG ${operation} выполнен!`, 'success');
+    } catch(err) {
+      console.error('CSG Error:', err);
+      showNotification('Ошибка CSG: ' + err.message, 'error');
+    }
+    document.getElementById('loadingOverlay').classList.remove('visible');
+  }, 50);
+}
+
+// ========== Undo/Redo ==========
+function saveState() {
+  const state = APP.objects.map(o => ({
+    id:o.id, name:o.name, type:o.type,
+    position:o.mesh.position.toArray(),
+    rotation:[o.mesh.rotation.x,o.mesh.rotation.y,o.mesh.rotation.z],
+    scale:o.mesh.scale.toArray(),
+    color:o.color, visible:o.visible, params:{...o.params},
+    metalness:o.mesh.material.metalness, roughness:o.mesh.material.roughness,
+    wireframe:o.mesh.material.wireframe
+  }));
+  APP.undoStack.push(JSON.stringify(state));
+  if (APP.undoStack.length > APP.maxUndo) APP.undoStack.shift();
+  APP.redoStack = [];
+}
+
+function appUndo() {
+  if (APP.undoStack.length < 2) { showNotification('Нечего отменять','info'); return; }
+  APP.redoStack.push(APP.undoStack.pop());
+  restoreState(APP.undoStack[APP.undoStack.length-1]);
+  showNotification('Отменено','info');
+}
+
+function appRedo() {
+  if (APP.redoStack.length === 0) { showNotification('Нечего повторять','info'); return; }
+  const state = APP.redoStack.pop();
+  APP.undoStack.push(state);
+  restoreState(state);
+  showNotification('Повторено','info');
+}
+
+function restoreState(jsonState) {
+  const state = JSON.parse(jsonState);
+  APP.objects.forEach(o => { if (o.mesh) APP.scene.remove(o.mesh); });
+  APP.objects = [];
+  state.forEach(s => {
+    let geo;
+    const seg = s.params.segments || 32;
+    switch(s.type) {
+      case 'box': geo = new THREE.BoxGeometry(s.params.width||1, s.params.height||1, s.params.depth||1); break;
+      case 'sphere': geo = new THREE.SphereGeometry(s.params.width||0.5, seg, seg); break;
+      case 'cylinder': geo = new THREE.CylinderGeometry(s.params.width||0.5, s.params.width||0.5, s.params.height||1, seg); break;
+      case 'cone': geo = new THREE.ConeGeometry(s.params.width||0.5, s.params.height||1, seg); break;
+      case 'torus': geo = new THREE.TorusGeometry(s.params.width||0.5, s.params.height||0.2, 16, 48); break;
+      case 'plane': geo = new THREE.PlaneGeometry(s.params.width||2, s.params.height||2); break;
+      default: geo = new THREE.BoxGeometry(1,1,1);
+    }
+    const mat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#'+s.color),
+      metalness:s.metalness||0.3, roughness:s.roughness||0.5, wireframe:s.wireframe||false
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.fromArray(s.position);
+    mesh.rotation.set(s.rotation[0],s.rotation[1],s.rotation[2]);
+    mesh.scale.fromArray(s.scale);
+    mesh.castShadow=true; mesh.receiveShadow=true;
+    const eg = new THREE.EdgesGeometry(geo);
+    const em = new THREE.LineBasicMaterial({color:0xe94560,transparent:true,opacity:0});
+    const edges = new THREE.LineSegments(eg, em);
+    mesh.add(edges);
+    APP.scene.add(mesh);
+    APP.objects.push({id:s.id, name:s.name, mesh, type:s.type, visible:s.visible, params:s.params, color:s.color, edges});
+    mesh.visible = s.visible;
+  });
+  APP.objectCounter = Math.max(...state.map(s=>s.id), 0);
+  deselectAll(); updateSceneTree();
+}
+
+// ========== Context Menu ==========
+function setupContextMenu() {
+  const cm = document.getElementById('contextMenu');
+  document.getElementById('viewport').addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (APP.selectedObject) { cm.style.left=e.clientX+'px'; cm.style.top=e.clientY+'px'; cm.classList.add('visible'); }
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.context-menu')) cm.classList.remove('visible'); });
+}
+
+function duplicateSelected() {
+  if (!APP.selectedObject) return;
+  const src = APP.selectedObject;
+  const ng = src.mesh.geometry.clone(), nm = src.mesh.material.clone();
+  const nmesh = new THREE.Mesh(ng, nm);
+  nmesh.position.copy(src.mesh.position); nmesh.position.x += 2;
+  nmesh.rotation.copy(src.mesh.rotation); nmesh.scale.copy(src.mesh.scale);
+  nmesh.castShadow=true; nmesh.receiveShadow=true;
+  APP.objectCounter++;
+  const obj = {id:APP.objectCounter, name:src.name+'_копия', mesh:nmesh, type:src.type, visible:true, params:{...src.params}, color:src.color};
+  APP.scene.add(nmesh); APP.objects.push(obj);
+  const eg = new THREE.EdgesGeometry(ng), em = new THREE.LineBasicMaterial({color:0xe94560,transparent:true,opacity:0});
+  const edges = new THREE.LineSegments(eg, em); nmesh.add(edges); obj.edges = edges;
+  selectObject(obj); updateSceneTree(); saveState();
+  showNotification('Объект дублирован','success');
+}
+
+function deleteSelected() {
+  if (!APP.selectedObject) return;
+  APP.scene.remove(APP.selectedObject.mesh);
+  APP.objects = APP.objects.filter(o => o !== APP.selectedObject);
+  deselectAll(); updateSceneTree(); saveState();
+  showNotification('Объект удалён','info');
+}
+
+function focusSelected() {
+  if (!APP.selectedObject) return;
+  APP.target.copy(APP.selectedObject.mesh.position);
+  APP.spherical.radius = 5;
+  updateCamera();
+}
+
+function hideSelected() {
+  if (!APP.selectedObject) return;
+  APP.selectedObject.visible = false;
+  APP.selectedObject.mesh.visible = false;
+  deselectAll(); updateSceneTree(); saveState();
+}
+
+function resetTransform() {
+  if (!APP.selectedObject) return;
+  APP.selectedObject.mesh.position.set(0, 0.5, 0);
+  APP.selectedObject.mesh.rotation.set(0,0,0);
+  APP.selectedObject.mesh.scale.set(1,1,1);
+  updatePropertiesPanel(); saveState();
+  showNotification('Трансформация сброшена','info');
+}
+
+// ========== EXPORT - FIXED: saves files directly to PC Downloads folder ==========
+function showExportModal() { document.getElementById('exportModal').classList.add('visible'); }
+function showImportModal() { document.getElementById('importModal').classList.add('visible'); }
+function closeModal(id) { document.getElementById(id).classList.remove('visible'); }
+
+function exportSTL() {
+  try {
+    let out = 'solid model\n';
+    APP.objects.forEach(obj => {
+      if (!obj.visible) return;
+      const geo = obj.mesh.geometry.clone();
+      geo.applyMatrix4(obj.mesh.matrixWorld);
+      const pos = geo.getAttribute('position');
+      for (let i = 0; i < pos.count - 2; i += 3) {
+        const ax=pos.getX(i),ay=pos.getY(i),az=pos.getZ(i);
+        const bx=pos.getX(i+1),by=pos.getY(i+1),bz=pos.getZ(i+1);
+        const cx=pos.getX(i+2),cy=pos.getY(i+2),cz=pos.getZ(i+2);
+        let nx=(by-ay)*(cz-az)-(bz-az)*(cy-ay);
+        let ny=(bz-az)*(cx-ax)-(bx-ax)*(cz-az);
+        let nz=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);
+        const len=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+        nx/=len; ny/=len; nz/=len;
+        out+=`facet normal ${nx.toFixed(6)} ${ny.toFixed(6)} ${nz.toFixed(6)}\n  outer loop\n`;
+        out+=`    vertex ${ax.toFixed(6)} ${ay.toFixed(6)} ${az.toFixed(6)}\n`;
+        out+=`    vertex ${bx.toFixed(6)} ${by.toFixed(6)} ${bz.toFixed(6)}\n`;
+        out+=`    vertex ${cx.toFixed(6)} ${cy.toFixed(6)} ${cz.toFixed(6)}\n`;
+        out+=`  endloop\nendfacet\n`;
+      }
+      geo.dispose();
+    });
+    out += 'endsolid model\n';
+    downloadFile('model.stl', out, 'application/sla');
+    closeModal('exportModal');
+    showNotification('STL файл сохранён на ПК ✓', 'success');
+  } catch(e) {
+    showNotification('Ошибка экспорта STL: '+e.message, 'error');
+    console.error(e);
+  }
+}
+
+function exportOBJ() {
+  try {
+    let out = '# CAD Studio Pro\n';
+    let vOff = 0;
+    APP.objects.forEach(obj => {
+      if (!obj.visible) return;
+      out += `o ${obj.name}\n`;
+      const geo = obj.mesh.geometry.clone();
+      geo.applyMatrix4(obj.mesh.matrixWorld);
+      const pos = geo.getAttribute('position'), norm = geo.getAttribute('normal');
+      for (let i = 0; i < pos.count; i++) out += `v ${pos.getX(i).toFixed(6)} ${pos.getY(i).toFixed(6)} ${pos.getZ(i).toFixed(6)}\n`;
+      if (norm) for (let i = 0; i < norm.count; i++) out += `vn ${norm.getX(i).toFixed(6)} ${norm.getY(i).toFixed(6)} ${norm.getZ(i).toFixed(6)}\n`;
+      const idx = geo.getIndex();
+      if (idx) {
+        for (let i = 0; i < idx.count; i += 3) {
+          const a=idx.array[i]+1+vOff, b=idx.array[i+1]+1+vOff, c=idx.array[i+2]+1+vOff;
+          out += norm ? `f ${a}//${a} ${b}//${b} ${c}//${c}\n` : `f ${a} ${b} ${c}\n`;
+        }
+      } else {
+        for (let i = 0; i < pos.count; i += 3) out += `f ${i+1+vOff} ${i+2+vOff} ${i+3+vOff}\n`;
+      }
+      vOff += pos.count;
+      geo.dispose();
+    });
+    downloadFile('model.obj', out, 'text/plain');
+    closeModal('exportModal');
+    showNotification('OBJ файл сохранён на ПК ✓', 'success');
+  } catch(e) {
+    showNotification('Ошибка экспорта OBJ: '+e.message, 'error');
+    console.error(e);
+  }
+}
+
+function exportPNG() {
+  try {
+    APP.renderer.render(APP.scene, APP.camera);
+    const dataURL = APP.renderer.domElement.toDataURL('image/png');
+    // Use a reliable download method
+    const link = document.createElement('a');
+    link.download = 'screenshot.png';
+    link.href = dataURL;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      try { if (document.body.contains(link)) document.body.removeChild(link); } catch(e){}
+    }, 2000);
+    closeModal('exportModal');
+    showNotification('PNG файл сохранён на ПК ✓', 'success');
+  } catch(e) {
+    showNotification('Ошибка экспорта PNG: '+e.message, 'error');
+    console.error(e);
+  }
+}
+
+function exportJSON() {
+  try {
+    const data = APP.objects.map(o => ({
+      id:o.id, name:o.name, type:o.type,
+      position:o.mesh.position.toArray(),
+      rotation:[o.mesh.rotation.x,o.mesh.rotation.y,o.mesh.rotation.z],
+      scale:o.mesh.scale.toArray(),
+      color:o.color, visible:o.visible, params:o.params,
+      metalness:o.mesh.material.metalness, roughness:o.mesh.material.roughness,
+      wireframe:o.mesh.material.wireframe
+    }));
+    downloadFile('project.json', JSON.stringify(data, null, 2), 'application/json');
+    closeModal('exportModal');
+    showNotification('JSON проект сохранён на ПК ✓', 'success');
+  } catch(e) {
+    showNotification('Ошибка экспорта JSON: '+e.message, 'error');
+    console.error(e);
+  }
+}
+
+function exportSVG() {
+  try {
+    const W=800, H=600;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+    svg += `<rect width="100%" height="100%" fill="${APP.isDarkTheme?'#1a1a2e':'#f5f7fa'}"/>`;
+    APP.objects.forEach(obj => {
+      if (!obj.visible) return;
+      const geo = obj.mesh.geometry.clone();
+      geo.applyMatrix4(obj.mesh.matrixWorld);
+      const eg = new THREE.EdgesGeometry(geo);
+      const pos = eg.getAttribute('position');
+      let d = '';
+      for (let i = 0; i < pos.count; i += 2) {
+        const x = W/2+pos.getX(i)*40, y = H/2-pos.getY(i)*40;
+        d += (i===0?'M':'L')+` ${x} ${y} `;
+      }
+      svg += `<path d="${d}" stroke="#${obj.color}" fill="none" stroke-width="1" opacity="0.7"/>`;
+      geo.dispose(); eg.dispose();
+    });
+    svg += '</svg>';
+    downloadFile('model.svg', svg, 'image/svg+xml');
+    closeModal('exportModal');
+    showNotification('SVG файл сохранён на ПК ✓', 'success');
+  } catch(e) {
+    showNotification('Ошибка экспорта SVG: '+e.message, 'error');
+    console.error(e);
+  }
+}
+
+function exportGLTF() {
+  try {
+    const data = {
+      asset: {version:'2.0', generator:'CAD Studio Pro'},
+      scene: 0,
+      scenes: [{nodes: APP.objects.map((o,i)=>i).filter((_,i) => APP.objects[i]?.visible)}],
+      nodes: APP.objects.filter(o=>o.visible).map(o => ({
+        name:o.name, translation:o.mesh.position.toArray(),
+        rotation:[o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
+        scale:o.mesh.scale.toArray()
+      }))
+    };
+    downloadFile('model.gltf', JSON.stringify(data,null,2), 'application/json');
+    closeModal('exportModal');
+    showNotification('GLTF файл сохранён на ПК ✓', 'success');
+  } catch(e) {
+    showNotification('Ошибка экспорта GLTF: '+e.message, 'error');
+    console.error(e);
+  }
+}
+
+// ========== Import ==========
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    try {
+      const content = e.target.result;
+      if (ext === 'json') {
+        restoreState(JSON.stringify(JSON.parse(content)));
+        showNotification('Проект загружен ✓', 'success');
+      } else if (ext === 'stl') {
+        parseSTL(content);
+      } else if (ext === 'obj') {
+        parseOBJ(content);
+      } else {
+        showNotification('Неподдерживаемый формат: ' + ext, 'error');
+      }
+    } catch(err) {
+      showNotification('Ошибка загрузки: ' + err.message, 'error');
+      console.error(err);
+    }
+    closeModal('importModal');
+    updateSceneTree();
+  };
+  
+  reader.onerror = () => showNotification('Ошибка чтения файла', 'error');
+  
+  if (ext === 'stl') reader.readAsArrayBuffer(file);
+  else reader.readAsText(file);
+  
+  event.target.value = '';
+}
+
+function parseSTL(content) {
+  const vertices = [];
+  if (content instanceof ArrayBuffer) {
+    const view = new DataView(content);
+    const numT = view.getUint32(80, true);
+    let offset = 84;
+    for (let i = 0; i < numT; i++) {
+      offset += 12;
+      for (let j = 0; j < 3; j++) { vertices.push(view.getFloat32(offset, true)); offset += 4; }
+      offset += 2;
+    }
+  } else if (typeof content === 'string') {
+    for (const line of content.split('\n')) {
+      const t = line.trim();
+      if (t.startsWith('vertex')) { const p = t.split(/\s+/); vertices.push(parseFloat(p[1]), parseFloat(p[2]), parseFloat(p[3])); }
+    }
+  }
+  if (vertices.length === 0) { showNotification('Не удалось прочитать STL', 'error'); return; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geo.computeVertexNormals();
+  importGeometry(geo, 'STL', 'stl');
+}
+
+function parseOBJ(content) {
+  const verts = [], faces = [];
+  for (const line of content.split('\n')) {
+    const p = line.trim().split(/\s+/);
+    if (p[0] === 'v') verts.push(parseFloat(p[1]), parseFloat(p[2]), parseFloat(p[3]));
+    else if (p[0] === 'f') {
+      const idx = p.slice(1).map(v => parseInt(v.split('/')[0]) - 1);
+      for (let i = 1; i < idx.length - 1; i++) faces.push(idx[0], idx[i], idx[i+1]);
+    }
+  }
+  if (verts.length === 0) { showNotification('Не удалось прочитать OBJ', 'error'); return; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(faces);
+  geo.computeVertexNormals();
+  importGeometry(geo, 'OBJ', 'obj');
+}
+
+function importGeometry(geo, namePrefix, type) {
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5), metalness: 0.3, roughness: 0.5 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox, center = new THREE.Vector3();
+  bb.getCenter(center);
+  mesh.position.sub(center);
+  mesh.position.y += (bb.max.y - bb.min.y) / 2;
+  APP.objectCounter++;
+  const obj = { id:APP.objectCounter, name:`${namePrefix}_${APP.objectCounter}`, mesh, type, visible:true, params:{width:1,height:1,depth:1,segments:32}, color:mat.color.getHexString() };
+  APP.scene.add(mesh); APP.objects.push(obj);
+  const eg = new THREE.EdgesGeometry(geo), em = new THREE.LineBasicMaterial({color:0xe94560,transparent:true,opacity:0});
+  const edges = new THREE.LineSegments(eg, em); mesh.add(edges); obj.edges = edges;
+  selectObject(obj); updateSceneTree(); saveState();
+  showNotification(`${namePrefix} импортирован ✓`, 'success');
+}
+
+// ========== Theme ==========
+function toggleTheme() {
+  APP.isDarkTheme = !APP.isDarkTheme;
+  document.body.classList.toggle('light-theme', !APP.isDarkTheme);
+  APP.scene.background = new THREE.Color(APP.isDarkTheme ? '#1a1a2e' : '#f5f7fa');
+  APP.scene.fog = new THREE.Fog(APP.isDarkTheme ? '#1a1a2e' : '#f5f7fa', 50, 200);
+  if (APP.gridHelper) APP.gridHelper.material.color.set(APP.isDarkTheme ? '#333355' : '#ccccdd');
+  document.getElementById('themeIcon').innerHTML = APP.isDarkTheme
+    ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+    : '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+}
+
+// ========== Tutorial ==========
+function showTutorial() { document.getElementById('tutorialOverlay').classList.add('visible'); }
+function closeTutorial() { document.getElementById('tutorialOverlay').classList.remove('visible'); }
+
+// ========== Notification ==========
+function showNotification(msg, type='info') {
+  const n = document.createElement('div');
+  n.className = `notification ${type}`;
+  n.textContent = msg;
+  document.body.appendChild(n);
+  setTimeout(() => { n.style.opacity='0'; n.style.transform='translateX(100%)'; n.style.transition='all 0.3s ease'; setTimeout(()=>n.remove(), 300); }, 2500);
+}
+
+function updateStatusBar() {
+  document.getElementById('statusSelection').textContent = APP.selectedObjects.map(o => o.name).join(', ') || 'Ничего не выбрано';
+}
+
+// ========== Resize Handles ==========
+function setupResizeHandles() {
+  const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
+  const lh = document.getElementById('leftResizeHandle'), rh = document.getElementById('rightResizeHandle');
+  let active = null;
+  
+  function start(panel, e) {
+    active = panel;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    lh.classList.toggle('active', panel==='left');
+    rh.classList.toggle('active', panel==='right');
+    e.preventDefault();
+  }
+  
+  lh.addEventListener('mousedown', e => start('left', e));
+  rh.addEventListener('mousedown', e => start('right', e));
+  
+  document.addEventListener('mousemove', e => {
+    if (!active) return;
+    if (active === 'left') lp.style.width = Math.max(220, Math.min(450, e.clientX)) + 'px';
+    else rp.style.width = Math.max(240, Math.min(500, document.querySelector('.main-area').getBoundingClientRect().right - e.clientX)) + 'px';
+    onViewportResize();
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (active) { active = null; document.body.style.cursor = ''; document.body.style.userSelect = ''; lh.classList.remove('active'); rh.classList.remove('active'); onViewportResize(); }
+  });
+}
+
+function onViewportResize() {
+  const vp = document.getElementById('viewport');
+  if (APP.renderer && vp) {
+    const w = vp.clientWidth, h = vp.clientHeight;
+    if (w > 0 && h > 0) {
+      APP.camera.aspect = w / h;
+      APP.camera.updateProjectionMatrix();
+      APP.renderer.setSize(w, h);
+    }
+  }
+}
+
+function toggleMobilePanel(side) {
+  const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
+  if (side === 'left') { lp.classList.toggle('mobile-visible'); rp.classList.remove('mobile-visible'); }
+  else { rp.classList.toggle('mobile-visible'); lp.classList.remove('mobile-visible'); }
+}
+
+// ========== Events ==========
+function setupEvents() {
+  const canvas = APP.renderer.domElement;
+  
+  canvas.addEventListener('mousedown', e => {
+    if (e.button === 0) {
+      const rect = canvas.getBoundingClientRect();
+      APP.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      APP.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      APP.raycaster.setFromCamera(APP.mouse, APP.camera);
+      const meshes = APP.objects.filter(o => o.visible).map(o => o.mesh);
+      const intersects = APP.raycaster.intersectObjects(meshes, false);
+      
+      if (APP.measureMode) {
+        let pt;
+        if (intersects.length > 0) pt = intersects[0].point.clone();
+        else { const plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0); pt = new THREE.Vector3(); APP.raycaster.ray.intersectPlane(plane, pt); }
+        if (pt) {
+          if (APP.snapEnabled) { pt.x = Math.round(pt.x*20)/20; pt.y = Math.round(pt.y*20)/20; pt.z = Math.round(pt.z*20)/20; }
+          addMeasurePoint(pt);
+        }
+        return;
+      }
+      
+      if (intersects.length > 0) {
+        const found = APP.objects.find(o => o.mesh === intersects[0].object);
+        if (found) { if (e.shiftKey) toggleObjectSelection(found); else selectObject(found); return; }
+      }
+      
+      if (!e.shiftKey) { APP.isOrbiting = true; APP.prevMouse = {x:e.clientX, y:e.clientY}; }
+      else { APP.isPanning = true; APP.prevMouse = {x:e.clientX, y:e.clientY}; }
+    } else if (e.button === 1 || e.button === 2) {
+      APP.isPanning = true;
+      APP.prevMouse = {x:e.clientX, y:e.clientY};
+    }
+  });
+  
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    APP.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    APP.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    const plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+    const pt = new THREE.Vector3();
+    APP.raycaster.setFromCamera(APP.mouse, APP.camera);
+    APP.raycaster.ray.intersectPlane(plane, pt);
+    if (pt) document.getElementById('infoCoords').textContent = `X: ${pt.x.toFixed(2)} Y: ${pt.y.toFixed(2)} Z: ${pt.z.toFixed(2)}`;
+    
+    if (APP.isOrbiting) {
+      const dx = e.clientX - APP.prevMouse.x, dy = e.clientY - APP.prevMouse.y;
+      APP.spherical.theta -= dx * 0.005;
+      APP.spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, APP.spherical.phi - dy * 0.005));
+      updateCamera();
+      APP.prevMouse = {x:e.clientX, y:e.clientY};
+    }
+    
+    if (APP.isPanning) {
+      const dx = e.clientX - APP.prevMouse.x, dy = e.clientY - APP.prevMouse.y;
+      const speed = 0.01 * APP.spherical.radius;
+      const dir = new THREE.Vector3();
+      APP.camera.getWorldDirection(dir);
+      const right = new THREE.Vector3().crossVectors(dir, APP.camera.up).normalize();
+      APP.target.add(right.multiplyScalar(-dx * speed));
+      APP.target.add(APP.camera.up.clone().multiplyScalar(dy * speed));
+      updateCamera();
+      APP.prevMouse = {x:e.clientX, y:e.clientY};
+    }
+  });
+  
+  canvas.addEventListener('mouseup', () => { APP.isOrbiting = false; APP.isPanning = false; });
+  canvas.addEventListener('mouseleave', () => { APP.isOrbiting = false; APP.isPanning = false; });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); APP.spherical.radius *= e.deltaY > 0 ? 1.1 : 0.9; APP.spherical.radius = Math.max(1, Math.min(100, APP.spherical.radius)); updateCamera(); }, {passive: false});
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  
+  let tsd = 0;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) { APP.isOrbiting = true; APP.prevMouse = {x:e.touches[0].clientX, y:e.touches[0].clientY}; }
+    else if (e.touches.length === 2) { APP.isOrbiting = false; tsd = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+  });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && APP.isOrbiting) {
+      const dx = e.touches[0].clientX - APP.prevMouse.x, dy = e.touches[0].clientY - APP.prevMouse.y;
+      APP.spherical.theta -= dx * 0.005;
+      APP.spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, APP.spherical.phi - dy * 0.005));
+      updateCamera();
+      APP.prevMouse = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+    } else if (e.touches.length === 2) {
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      APP.spherical.radius *= tsd / d;
+      APP.spherical.radius = Math.max(1, Math.min(100, APP.spherical.radius));
+      updateCamera();
+      tsd = d;
+    }
+  }, {passive: false});
+  canvas.addEventListener('touchend', () => { APP.isOrbiting = false; APP.isPanning = false; });
+  
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+    
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z' || e.key === 'Z' || e.key === 'я' || e.key === 'Я') { e.preventDefault(); appUndo(); return; }
+      if (e.key === 'y' || e.key === 'Y' || e.key === 'н' || e.key === 'Н') { e.preventDefault(); appRedo(); return; }
+      if (e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы') { e.preventDefault(); showExportModal(); return; }
+      return;
+    }
+    
+    switch(e.key) {
+      case 'Delete': case 'Backspace': e.preventDefault(); deleteSelected(); break;
+      case 'Escape': deselectAll(); if (APP.measureMode) setMeasureMode(null); hideCustomForms(); break;
+      case 'g': case 'G': case 'у': case 'У': setTransformMode('translate'); break;
+      case 'r': case 'R': case 'к': case 'К': setTransformMode('rotate'); break;
+      case 's': case 'S': case 'ы': case 'Ы': setTransformMode('scale'); break;
+      case 'f': case 'F': case 'а': case 'А': focusSelected(); break;
+      case 'd': case 'D': case 'в': case 'В': duplicateSelected(); break;
+      case 'u': case 'U': case 'г': case 'Г': csgBoolean('union'); break;
+      case 'i': case 'I': case 'ш': case 'Ш': csgBoolean('intersect'); break;
+      case 'x': case 'X': case 'ч': case 'Ч': csgBoolean('subtract'); break;
+    }
+  });
+  
+  setupContextMenu();
+  
+  document.querySelectorAll('[data-tooltip]').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      const t = document.getElementById('tooltip');
+      t.textContent = el.getAttribute('data-tooltip');
+      t.classList.add('visible');
+      const r = el.getBoundingClientRect();
+      t.style.left = r.left + 'px';
+      t.style.top = (r.bottom + 5) + 'px';
+    });
+    el.addEventListener('mouseleave', () => document.getElementById('tooltip').classList.remove('visible'));
+  });
+  
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('visible'); });
+  });
+  
+  window.addEventListener('resize', onViewportResize);
+}
+
+// ========== Animation ==========
+function animate() {
+  requestAnimationFrame(animate);
+  APP.renderer.render(APP.scene, APP.camera);
+  APP.frameCount++;
+  const el = APP.clock.getElapsedTime();
+  if (el > 0.5) {
+    APP.fps = Math.round(APP.frameCount / el);
+    document.getElementById('infoFps').textContent = `FPS: ${APP.fps}`;
+    APP.frameCount = 0;
+    APP.clock.start();
+  }
+}
+
+// ========== Start ==========
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
+```
